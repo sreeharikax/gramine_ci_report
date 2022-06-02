@@ -23,25 +23,37 @@ class ResultAnalyser:
                 comb_list.extend(itertools.product([test], test_reskeys))
         return comb_list
 
+    def get_headers_by_node(self):
+        headers_list = []
+        data_copy = self.rdata.copy()
+        gsc_jobs = [x for x in data_copy if "local_ci_graphene_gsc" in x]
+        [data_copy.pop(job) for job in gsc_jobs]
+        node_list = list(set([data_copy[x]['build_details']['node'] for x in data_copy]))
+        for node in node_list:
+            com_jobs = [x for x in data_copy if data_copy[x]['build_details']['node'] == node]
+            headers_list.extend(com_jobs)
+        headers_list.extend(gsc_jobs)
+
+        return headers_list
+
     def parse_output(self):
-        headers = self.rdata.keys()
+        headers = self.get_headers_by_node()
         test_suites = self.get_test_suites()
         suites_list = self.get_suites_list(test_suites)
 
         row_list = pd.MultiIndex.from_tuples(suites_list)
         df = pd.DataFrame('', row_list, columns=headers)
-        try:
-            for tc in test_suites:
-                for suite, data in self.rdata.items():
+        for tc in test_suites:
+            for suite, data in self.rdata.items():
+                try:
                     res = data.get(tc, {})
-                    if ("local_ci_graphene_gsc" not in suite) or (tc == "build_details"):
-                        for x, y in res.items():
-                            if type(y) == str:
-                                df.loc[(tc, x), suite] = y
-                            else:
-                                df.loc[(tc, x), suite] = int(y)
-        except Exception as e:
-            print("Exception Occured during result analysis:", str(e))
+                    for x, y in res.items():
+                        if type(y) == int:
+                            df.loc[(tc, x), suite] = int(y)
+                        else:
+                            df.loc[(tc, x), suite] = y
+                except Exception as e:
+                    print("Exception Occured during result analysis for pipeline {}:".format(suite), str(e))
 
         df_1 = df.style.apply(self.highlight_cells, axis=None)
         return df_1

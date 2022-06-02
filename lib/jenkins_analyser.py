@@ -1,6 +1,7 @@
 import jenkins
 import os
 import json
+import re
 
 summary = {
     "Pass": 0,
@@ -54,6 +55,16 @@ class GrapheneCIAnalysis:
             print("Unable to get build environment details for {}:{}".format(pipeline, build_no))
         return env_details
 
+    def verify_gsc_workloads(self, pipeline, num):
+        gsc_result = {'test_workloads': {'python': "FAILED", 'bash': 'FAILED'}}
+        gsc_console = self.jenkins_server.get_build_console_output(pipeline, num)
+        bash_out = re.search('gramine-sgx \/entrypoint -c free(.*)Mem:(.*)Swap:', gsc_console, re.DOTALL)
+        python_out = re.search('gramine-sgx \/entrypoint -c (.*)print(.*)HelloWorld!(.*)HelloWorld!', gsc_console, re.DOTALL)
+        if bash_out: gsc_result['test_workloads']['bash'] = "PASSED"
+        if python_out: gsc_result['test_workloads']['python'] = "PASSED"
+
+        return gsc_result
+
     def get_build_summary(self, pipeline_jobs):
         consolidate_data = {}
         for pipeline, build_no in pipeline_jobs.items():
@@ -63,7 +74,7 @@ class GrapheneCIAnalysis:
                     build_info = {}
                     build_info = self.get_build_env_details(pipeline, int(num))
                     if "gsc" in pipeline:
-                        pass
+                        res = self.verify_gsc_workloads(pipeline, int(num))
                     else:
                         job_report = self.jenkins_server.get_build_test_report(pipeline, int(num))
                         res = self.get_job_summary(job_report['suites'])
@@ -136,6 +147,6 @@ class GrapheneCIAnalysis:
         return output
 
     def get_failed_test(self, test_data):
-        failed_tests = [tc['name'] for tc in test_data if tc['status'] == "FAILED"]
+        failed_tests = [tc['name'] for tc in test_data if tc['status'] in ["FAILED", "REGRESSION"]]
         return failed_tests
 
