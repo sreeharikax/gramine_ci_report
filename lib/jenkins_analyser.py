@@ -2,6 +2,7 @@ import jenkins
 import os
 import json
 import re
+import xml.etree.ElementTree as ET
 
 summary = {
     "Pass": 0,
@@ -25,67 +26,93 @@ class GrapheneCIAnalysis:
         job_details = {}
         rerun_builds = os.environ.get('rerun_details', '{}')
         updated_builds = json.loads(rerun_builds)
-        match_out = output.split("Starting building: ")
-        for match in match_out:
-            details = ("").join(match.split("\r\n")[0]).split(" #")
-            if len(details) > 1:
-                build_name = details[0].strip()
-                job_details[build_name] = job_details.get(build_name, [])
-                dbuild_no = details[1].strip()
-                if (build_name in updated_builds.keys()) and (updated_builds.get(build_name, {}).get(dbuild_no, None) != None):
-                    job_details[build_name].append(updated_builds[build_name][dbuild_no].strip())
-                else:
-                    job_details[build_name].append(dbuild_no)
+        match_out = output.split("Scheduling project: ")
+        for match in match_out[1::]:
+            build_name = match.split("\r\n")[0].strip()
+            job_regex = re.search("Starting building: {} .\d+".format(build_name), output)
+            if job_regex:
+                dbuild_no = job_regex.group().split("#")[1]
+            else:
+                dbuild_no = ""
+            if (build_name in updated_builds.keys()):
+                job_details[build_name] = updated_builds[build_name]
+            else:
+                job_details[build_name] = dbuild_no
         return job_details
 
-    def get_build_env_details(self, pipeline, build_no):
-        env_details = {}
-        node_name = ''
+    def get_node_details(self, pipeline, build_no, console_out):
+        node_details = {}
         try:
-            console_out = self.jenkins_server.get_build_info(pipeline, build_no, depth=1)
-            sgx_mode = 1 if "sgx" in pipeline else 0
-            for c1 in console_out['actions']:
-                if "parameters" in c1.keys():
-                    node_name = [param['value'] for param in c1["parameters"] if param["name"] == "node_label"][0]
-            env_details["node"] = node_name
-            env_details["build_no"] = build_no
-            env_details["result"] = console_out["result"]
-            env_details['sgx'] = sgx_mode
+            node_info = re.search("Running on (.*) in (.*){}".format(pipeline), console_out)
+            if node_info:
+                node_details["node"] = node_info.groups()[0].strip()
+            else:
+                node_details["node"] = re.search("Waiting for next available executor on (.)(.*)(.)\\r\\n", console_out).groups()[1].strip()
+            node_data = self.jenkins_server.get_node_config(node_details['node'])
+            node_details["IP"] = ET.fromstring(node_data).find('launcher').find('host').text
+            node_details["Kernel Version"] = self.jenkins_server.run_script('println "uname -r".execute().text',
+                                                                           node_details['node']).strip()
         except Exception as e:
-            print("Unable to get build environment details for {}:{}".format(pipeline, build_no))
+            print("Unable to get node details for {}:{} {}".format(pipeline, build_no, e))
+        return node_details
+
+    def get_build_env_details(self, pipeline, build_no, console_out):
+        env_details = {}
+        try:
+            build_out = self.jenkins_server.get_build_info(pipeline, build_no, depth=1)
+            node_info = self.get_node_details(pipeline, build_no, console_out)
+            if node_info: env_details.update(node_info)
+            for c1 in build_out['actions']:
+                if "parameters" in c1.keys() and "gsc" in pipeline:
+                    distro_version = [param['value'].replace(":", " ") for param in c1['parameters'] if param['name'] == "distro_ver"][0]
+                    env_details['Mode'] = "Gramine SGX"
+                    env_details['OS'] = distro_version.capitalize()
+                elif "environment" in c1.keys() and "gsc" not in pipeline:
+                    env_details['Mode'] = "Gramine SGX" if c1["environment"].get('SGX') == "1" else "Gramine Native"
+                    env_details['OS'] = c1['environment'].get('os_release_id').capitalize() + " " + c1['environment'].get('os_version')
+            env_details["result"] = build_out["result"]
+            env_details["build_no"] = build_no
+            env_details["Kernel Version"] = self.jenkins_server.run_script('println "uname -r".execute().text', env_details['node']).strip()
+        except Exception as e:
+            print("Unable to get build environment details for {}:{} {}".format(pipeline, build_no, e))
         return env_details
 
-    def verify_gsc_workloads(self, pipeline, num):
-        gsc_result = {'test_workloads': {'python': "FAILED", 'bash': 'FAILED'}}
-        gsc_console = self.jenkins_server.get_build_console_output(pipeline, num)
-        bash_out = re.search('gramine-sgx \/entrypoint -c free(.*)Mem:(.*)Swap:', gsc_console, re.DOTALL)
-        python_out = re.search('gramine-sgx \/entrypoint -c (.*)print(.*)HelloWorld!(.*)HelloWorld!', gsc_console, re.DOTALL)
-        if bash_out: gsc_result['test_workloads']['bash'] = "PASSED"
-        if python_out: gsc_result['test_workloads']['python'] = "PASSED"
+    def verify_gsc_workloads(self, gsc_console):
+        gsc_result = {'test_workloads': {'python': "FAILED", 'bash': 'FAILED'}, 'failures' :{'test_workloads':{}}}
+        bash_out = re.search('docker run --device=(.*) gsc-(.*)bash -c free(.*)Mem:(.*)Swap:', gsc_console, re.DOTALL)
+        python_out = re.search('docker run --device=(.*) gsc-python -c (.*)print(.*)HelloWorld!(.*)HelloWorld!', gsc_console, re.DOTALL)
+        if bash_out:
+            gsc_result['test_workloads']['bash'] = "PASSED"
+        else:
+            gsc_result['failures']['test_workloads']['bash'] = "FAILED"
+        if python_out:
+            gsc_result['test_workloads']['python'] = "PASSED"
+        else:
+            gsc_result['failures']['test_workloads']['python'] = "FAILED"
 
         return gsc_result
 
     def get_build_summary(self, pipeline_jobs):
         consolidate_data = {}
         for pipeline, build_no in pipeline_jobs.items():
-            for num in build_no:
-                try:
-                    res = {}
-                    build_info = {}
-                    build_info = self.get_build_env_details(pipeline, int(num))
-                    if "gsc" in pipeline:
-                        res = self.verify_gsc_workloads(pipeline, int(num))
-                    else:
-                        job_report = self.jenkins_server.get_build_test_report(pipeline, int(num))
-                        res = self.get_job_summary(job_report['suites'])
-                        fail_summary = self.get_test_failure_data(job_report['suites'])
-                        res.update({"failures": fail_summary})
-                except:
-                    print("Failed to analyze pipeline {}, {}".format(pipeline, num))
-                finally:
-                    res.update({"build_details": build_info})
-                    job_name = "{}_{}".format(pipeline, num)
-                    consolidate_data[job_name] = res
+            try:
+                res = {}
+                build_info = {"result": "FAILURE"}
+                console_out = self.jenkins_server.get_build_console_output(pipeline, int(build_no))
+                build_info = self.get_build_env_details(pipeline, int(build_no), console_out)
+                if "gsc" in pipeline:
+                    res = self.verify_gsc_workloads(console_out)
+                else:
+                    job_report = self.jenkins_server.get_build_test_report(pipeline, int(build_no))
+                    res = self.get_job_summary(job_report['suites'])
+                    fail_summary = self.get_test_failure_data(job_report['suites'])
+                    res.update({"failures": fail_summary})
+            except:
+                print("Failed to analyze pipeline {}, {}".format(pipeline, build_no))
+            finally:
+                res.update({"build_details": build_info})
+                # job_name = "{}_{}".format(pipeline, num)
+                consolidate_data[pipeline] = res
         return consolidate_data
 
     def result_update(self, res, orig_data):
@@ -136,7 +163,7 @@ class GrapheneCIAnalysis:
     def get_workload_result(self, suite_data):
         res = {}
         for suite in suite_data:
-            res[suite['name'].split("_")[1]] = suite['status']
+            res[suite['name'].replace("test_", "").replace("_workload", "")] = suite['status']
         return res
 
     def analyze_report(self, job_name):

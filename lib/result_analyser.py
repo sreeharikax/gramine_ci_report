@@ -1,11 +1,12 @@
 import os
 import pandas as pd
 import itertools
+import copy
 
 class ResultAnalyser:
     def __init__(self, output, output_fname="test"):
         self.logs_dir = "report"
-        self.rdata = output
+        self.rdata = copy.deepcopy(output)
         self.fname = output_fname
 
     def setup(self):
@@ -15,36 +16,55 @@ class ResultAnalyser:
     def get_suites_list(self, test_list):
         comb_list = []
         test_reskeys = ["Total", "Pass", "Fail", "Skip"]
-        build_keys = ['node', 'build_no', 'result', 'sgx']
+        build_keys = ['node', 'result', 'Mode', "OS", "Kernel Version", "IP", "build_no"]
         for test in test_list:
             if test == "build_details":
                 comb_list.extend(list(itertools.product([test], build_keys)))
-            elif test != "test_workloads":
+            elif test not in ["test_workloads", "gsc"]:
                 comb_list.extend(itertools.product([test], test_reskeys))
         return comb_list
 
-    def get_headers_by_node(self):
+    def get_headers_by_node(self, summary):
         headers_list = []
-        data_copy = self.rdata.copy()
+        data_copy = copy.deepcopy(self.rdata)
         gsc_jobs = [x for x in data_copy if "local_ci_graphene_gsc" in x]
         [data_copy.pop(job) for job in gsc_jobs]
-        node_list = list(set([data_copy[x]['build_details']['node'] for x in data_copy]))
+        node_list = list(set([data_copy[x].get('build_details',{}).get('node') for x in data_copy]))
         for node in node_list:
-            com_jobs = [x for x in data_copy if data_copy[x]['build_details']['node'] == node]
+            com_jobs = [x for x in data_copy if data_copy[x].get('build_details', {}).get('node') == node]
             headers_list.extend(com_jobs)
-        headers_list.extend(gsc_jobs)
+        if not summary: headers_list.extend(gsc_jobs)
 
         return headers_list
 
-    def parse_output(self):
-        headers = self.get_headers_by_node()
-        test_suites = self.get_test_suites()
+    def update_gsc_results(self):
+        data_copy = copy.deepcopy(self.rdata)
+        gsc_jobs = [x for x in data_copy if "local_ci_graphene_gsc" in x]
+        [data_copy.pop(job) for job in gsc_jobs]
+        comb = {}
+        for gsc_job in gsc_jobs:
+            for job, res in data_copy.items():
+                if (res['build_details'].get('node') == self.rdata[gsc_job]['build_details'].get('node') and
+                        res['build_details'].get('Mode') == "Gramine SGX"):
+                    comb[job] = gsc_job
+        for d_job, g_job in comb.items():
+            data_copy[d_job]['gsc'] = self.rdata[g_job].get('test_workloads', {})
+        return data_copy
+
+    def parse_output(self, summary=False):
+        headers = self.get_headers_by_node(summary)
+        test_suites = self.get_test_suites(summary)
         suites_list = self.get_suites_list(test_suites)
+
+        if summary:
+            result_summary = copy.deepcopy(self.update_gsc_results())
+        else:
+            result_summary = copy.deepcopy(self.rdata)
 
         row_list = pd.MultiIndex.from_tuples(suites_list)
         df = pd.DataFrame('', row_list, columns=headers)
         for tc in test_suites:
-            for suite, data in self.rdata.items():
+            for suite, data in result_summary.items():
                 try:
                     res = data.get(tc, {})
                     for x, y in res.items():
@@ -56,10 +76,11 @@ class ResultAnalyser:
                     print("Exception Occured during result analysis for pipeline {}:".format(suite), str(e))
 
         df_1 = df.style.apply(self.highlight_cells, axis=None)
+        df_1.set_properties(**{'text-align': 'center'})
         return df_1
 
     def highlight_cells(self, x):
-        df_1 = x.copy()
+        df_1 = copy.deepcopy(x)
         for index in range(len(x)):
             if index %2 == 0:
                 df_1.iloc[index] = 'background-color: #B4C6E7'
@@ -68,12 +89,13 @@ class ResultAnalyser:
 
         return df_1
 
-    def get_test_suites(self):
+    def get_test_suites(self, summary):
         cases_list = []
         for rkey, rval in self.rdata.items():
             cases_list.extend(list(rval.keys()))
         cases_list = list(set(cases_list))
         cases_list.sort()
+        if summary: cases_list.append('gsc')
         cases_list.remove('failures')
         return cases_list
 
