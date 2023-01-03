@@ -5,8 +5,8 @@ import os
 
 
 class FailureAnalyser(ResultAnalyser):
-    def __init__(self, output):
-        self.rg = ResultAnalyser(output)
+    def __init__(self, ra):
+        self.rg = ra
         self.fdata = {}
         self.f_list = {}
         self.failures_list = os.path.join(os.path.dirname(__file__), "../data/failures_list.csv")
@@ -20,7 +20,7 @@ class FailureAnalyser(ResultAnalyser):
 
         for test in test_list:
             if test == "build_details":
-                comb_list.extend(list(itertools.product([test], ['node', "Mode", "result", "OS", "IP", "build_no"])))
+                comb_list.extend(list(itertools.product([test], self.rg.build_keys)))
             else:
                 max_value = max([len(fvalue.get(test, [])) for fkey, fvalue in self.fdata.items()])
                 max_value = max_value+1 if (max_value == 0) else max_value
@@ -28,11 +28,14 @@ class FailureAnalyser(ResultAnalyser):
 
         return comb_list
 
-    def parse_output(self):
-        orig_headers = list(self.rg.rdata.keys())
-        headers = orig_headers.copy()
-        # [headers.remove(job) for job in orig_headers if "gsc" in job]
-        test_suites = self.rg.get_test_suites(False)
+    def get_headers(self):
+        headers_list = [x for x in self.rg.rdata.keys()  if (self.rg.rdata[x].get("build_details", {}).get("result", "") != "SUCCESS")]
+        return headers_list
+
+    def parse_output(self, output, summary=False):
+        self.rg.rdata = output
+        headers = self.get_headers()
+        test_suites = self.rg.get_test_suites(summary)
         test_list = test_suites.copy()
         suites_list = self.get_suites_list(test_list)
         self.fetch_known_failures()
@@ -40,16 +43,13 @@ class FailureAnalyser(ResultAnalyser):
         df = pd.DataFrame('', row_list, columns=headers)
         try:
             for tc in test_list:
-                for suite, data in self.fdata.items():
+                for suite in headers:
+                    data = self.fdata[suite]
                     res = data.get(tc, {})
                     if res != None:
                         if tc == "build_details":
-                            df.loc[(tc, 'node'), suite] = res.get('node')
-                            df.loc[(tc, 'Mode'), suite] = res.get('Mode')
-                            df.loc[(tc, 'result'), suite] = res.get('result')
-                            df.loc[(tc, 'OS'), suite] = res.get('OS')
-                            df.loc[(tc, 'IP'), suite] = res.get('IP')
-                            df.loc[(tc, 'build_no'), suite] = res.get('build_no')
+                            for key in self.rg.build_keys:
+                                df.loc[(tc, key), suite] = res.get(key)
                         else:
                             for index, val in enumerate(res):
                                 df.loc[(tc, index), suite] = val

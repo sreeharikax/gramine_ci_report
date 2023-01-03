@@ -18,6 +18,7 @@ class GrapheneCIAnalysis:
         self.user = u_name
         self.pwd = u_pwd
         self.jenkins_server = self.create_server()
+        self.build_details = True
 
     def create_server(self):
         return jenkins.Jenkins(self.url, self.user, self.pwd)
@@ -60,36 +61,36 @@ class GrapheneCIAnalysis:
         env_details = {}
         try:
             build_out = self.jenkins_server.get_build_info(pipeline, build_no, depth=1)
-            node_info = self.get_node_details(pipeline, build_no, console_out)
-            if node_info: env_details.update(node_info)
-            for c1 in build_out['actions']:
-                if "parameters" in c1.keys() and "gsc" in pipeline:
-                    distro_version = [param['value'].replace(":", " ") for param in c1['parameters'] if param['name'] == "distro_ver"][0]
-                    env_details['Mode'] = "Gramine SGX"
-                    env_details['OS'] = distro_version.capitalize()
-                elif "environment" in c1.keys() and "gsc" not in pipeline:
-                    env_details['Mode'] = "Gramine SGX" if c1["environment"].get('SGX') == "1" else "Gramine Native"
-                    env_details['OS'] = c1['environment'].get('os_release_id').capitalize() + " " + c1['environment'].get('os_version')
+            if self.build_details:
+                node_info = self.get_node_details(pipeline, build_no, console_out)
+                if node_info: env_details.update(node_info)
+                for c1 in build_out['actions']:
+                    if "parameters" in c1.keys() and "gsc" in pipeline:
+                        distro_version = [param['value'].replace(":", " ") for param in c1['parameters'] if param['name'] == "distro_ver"][0]
+                        env_details['Mode'] = "Gramine SGX"
+                        env_details['OS'] = distro_version.capitalize()
+                    elif "environment" in c1.keys() and "gsc" not in pipeline:
+                        env_details['Mode'] = "Gramine SGX" if c1["environment"].get('SGX') == "1" else "Gramine Native"
+                        env_details['OS'] = c1.get('environment', {}).get('os_release_id',
+                            '').capitalize() + " " + c1.get('environment', {}).get('os_version', '')
+                env_details["Kernel Version"] = self.jenkins_server.run_script('println "uname -r".execute().text',
+                                                                               env_details['node']).strip()
             env_details["result"] = build_out["result"]
             env_details["build_no"] = build_no
-            env_details["Kernel Version"] = self.jenkins_server.run_script('println "uname -r".execute().text', env_details['node']).strip()
         except Exception as e:
             print("Unable to get build environment details for {}:{} {}".format(pipeline, build_no, e))
         return env_details
 
     def verify_gsc_workloads(self, gsc_console):
-        gsc_result = {'test_workloads': {'python': "FAILED", 'bash': 'FAILED'}, 'failures' :{'test_workloads':{}}}
+        gsc_result = {'test_workloads': {'python': "FAILED", 'bash': 'FAILED', "helloworld": "FAILED"}, 'failures' :{'test_workloads':{}}}
         bash_out = re.search('docker run --device=(.*) gsc-(.*)bash -c free(.*)Mem:(.*)Swap:', gsc_console, re.DOTALL)
         python_out = re.search('docker run --device=(.*) gsc-python -c (.*)print(.*)HelloWorld!(.*)HelloWorld!', gsc_console, re.DOTALL)
-        if bash_out:
-            gsc_result['test_workloads']['bash'] = "PASSED"
-        else:
-            gsc_result['failures']['test_workloads']['bash'] = "FAILED"
-        if python_out:
-            gsc_result['test_workloads']['python'] = "PASSED"
-        else:
-            gsc_result['failures']['test_workloads']['python'] = "FAILED"
-
+        helloworld_out = re.search('docker run --device=(.*) gsc-(.*)helloworld(.*)"Hello World!"', gsc_console, re.DOTALL)
+        for workload in ["bash", "python", "helloworld"]:
+            if eval(workload+"_out"):
+                gsc_result['test_workloads'][workload] = "PASSED"
+            else:
+                gsc_result["failures"]["test_workloads"][workload] = "FAILED"
         return gsc_result
 
     def get_build_summary(self, pipeline_jobs):
@@ -142,7 +143,7 @@ class GrapheneCIAnalysis:
         for suite in suites_data:
             suite_list = self.get_test_suite_name(suite['cases'])
             for elem in suite_list:
-                failed_tests = self.get_failed_test(suite['cases'])
+                failed_tests = self.get_failed_test(suite['cases'], elem)
                 old_data = fail_report.get(elem, [])
                 fail_report[elem] = old_data + failed_tests
         return fail_report
@@ -173,7 +174,7 @@ class GrapheneCIAnalysis:
         output = self.get_build_summary(downstream_jobs)
         return output
 
-    def get_failed_test(self, test_data):
-        failed_tests = [tc['name'] for tc in test_data if tc['status'] in ["FAILED", "REGRESSION"]]
+    def get_failed_test(self, test_data, test_suite):
+        failed_tests = [tc['name'] for tc in test_data if tc['status'] in ["FAILED", "REGRESSION"] and test_suite in tc['className']]
         return failed_tests
 

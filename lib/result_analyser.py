@@ -4,22 +4,20 @@ import itertools
 import copy
 
 class ResultAnalyser:
-    def __init__(self, output, output_fname="test"):
-        self.logs_dir = "report"
-        self.rdata = copy.deepcopy(output)
-        self.fname = output_fname
-
-    def setup(self):
-        if not os.path.isdir(self.logs_dir):
-            os.mkdir(self.logs_dir)
+    def __init__(self):
+        self.build_details = True
+        self.build_keys = []
 
     def get_suites_list(self, test_list):
         comb_list = []
         test_reskeys = ["Total", "Pass", "Fail", "Skip"]
-        build_keys = ['node', 'result', 'Mode', "OS", "Kernel Version", "IP", "build_no"]
+        if self.build_details:
+            self.build_keys = ['node', 'result', 'Mode', "OS", "Kernel Version", "IP", "build_no"]
+        else:
+            self.build_keys = ['result', "build_no"]
         for test in test_list:
             if test == "build_details":
-                comb_list.extend(list(itertools.product([test], build_keys)))
+                comb_list.extend(list(itertools.product([test], self.build_keys)))
             elif test not in ["test_workloads", "gsc"]:
                 comb_list.extend(itertools.product([test], test_reskeys))
         return comb_list
@@ -51,7 +49,8 @@ class ResultAnalyser:
             data_copy[d_job]['gsc'] = self.rdata[g_job].get('test_workloads', {})
         return data_copy
 
-    def parse_output(self, summary=False):
+    def parse_output(self, output, summary=False):
+        self.rdata = copy.deepcopy(output)
         headers = self.get_headers_by_node(summary)
         test_suites = self.get_test_suites(summary)
         suites_list = self.get_suites_list(test_suites)
