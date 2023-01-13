@@ -95,6 +95,7 @@ class ResultAnalyser:
         cases_list = list(set(cases_list))
         cases_list.sort()
         if summary: cases_list.append('gsc')
-        cases_list.remove('failures')
+        if "failures" in cases_list:
+            cases_list.remove('failures')
         return cases_list
 

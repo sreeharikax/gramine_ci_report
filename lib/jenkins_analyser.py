@@ -12,7 +12,7 @@ summary = {
 }
 
 
-class GrapheneCIAnalysis:
+class JenkinsAnalysis:
     def __init__(self, url, u_name, u_pwd):
         self.url = url
         self.user = u_name
@@ -83,9 +83,9 @@ class GrapheneCIAnalysis:
 
     def verify_gsc_workloads(self, gsc_console):
         gsc_result = {'test_workloads': {'python': "FAILED", 'bash': 'FAILED', "helloworld": "FAILED"}, 'failures' :{'test_workloads':{}}}
-        bash_out = re.search('docker run --device=(.*) gsc-(.*)bash -c free(.*)Mem:(.*)Swap:', gsc_console, re.DOTALL)
+        bash_out = re.search('docker run --device=(.*) gsc-bash-test -c free(.*)Mem:(.*)Swap:', gsc_console, re.DOTALL)
         python_out = re.search('docker run --device=(.*) gsc-python -c (.*)print(.*)HelloWorld!(.*)HelloWorld!', gsc_console, re.DOTALL)
-        helloworld_out = re.search('docker run --device=(.*) gsc-(.*)helloworld(.*)"Hello World!"', gsc_console, re.DOTALL)
+        helloworld_out = re.search('docker run --device=(.*) gsc-helloworld-test(.*)"Hello World!', gsc_console, re.DOTALL)
         for workload in ["bash", "python", "helloworld"]:
             if eval(workload+"_out"):
                 gsc_result['test_workloads'][workload] = "PASSED"
@@ -156,7 +156,7 @@ class GrapheneCIAnalysis:
         result = summary.copy()
 
         result["Pass"] = sum((tc['status'] == "PASSED") for tc in suite_data if workload in tc['className'])
-        result["Fail"] = sum((tc['status'] == "FAILED") for tc in suite_data if workload in tc['className'])
+        result["Fail"] = sum((tc['status'] in ["FAILED", "REGRESSION"]) for tc in suite_data if workload in tc['className'])
         result["Skip"] = sum((tc['status'] == "SKIPPED") for tc in suite_data if workload in tc['className'])
         result["Total"] = result["Pass"] + result["Fail"] + result["Skip"]
         return result

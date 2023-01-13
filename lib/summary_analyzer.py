@@ -1,5 +1,6 @@
 import os
 from datetime import date
+import pandas as pd
 import inspect
 
 
@@ -8,18 +9,17 @@ class SummaryAnalyser():
         self.build_folder = "Gramine_Nightly_{}".format(str(date.today()))
         jk_workspace = "\\\\inecsamba.iind.intel.com\\nfs\\iind\\proj\\ssg\\ubt12_disk001"
         self.dest_path = os.path.join(jk_workspace, "Gramine_Report", self.build_folder)
-        self.process_result_folder()
 
     def copy_results(self):
         if not os.path.exists(self.dest_path): os.makedirs(self.dest_path)
         print("Copying the excel data to {}".format(self.dest_path))
         os.system("robocopy /R:5 /MIR /COPY:DT /DCOPY:T " + self.result_folder + " " + self.dest_path)
 
-    def process_result_folder(self):
-        file = inspect.stack()[2].filename
+    def process_result_folder(self, rfile):
+        file = inspect.stack()[3].filename
         self.result_folder = os.path.join(os.path.dirname(file), "results", self.build_folder)
         if not os.path.exists(self.result_folder): os.makedirs(self.result_folder)
-        self.result_file = '{}/nightly_results.xlsx'.format(self.result_folder)
+        self.result_file = f'{self.result_folder}/{rfile}.xlsx'
 
     @staticmethod
     def table_format(workbook, worksheet, max_row, max_col):
@@ -50,6 +50,16 @@ class SummaryAnalyser():
                                                  'value': '"ABORTED"',
                                                  'format': format3})
         worksheet.freeze_panes(3, 2)
+
+    def write_to_excel(self, rfile, data_dict):
+        self.process_result_folder(rfile)
+        writer = pd.ExcelWriter(self.result_file, engine='xlsxwriter')
+        try:
+            for name, r_df in data_dict.items():
+                self.process_output(writer, r_df, name)
+        finally:
+            # Close the Pandas Excel writer and output the Excel file.
+            writer.save()
 
     def process_output(self, writer, out_df, sheet_name):
         out_df.to_excel(writer, sheet_name=sheet_name)
