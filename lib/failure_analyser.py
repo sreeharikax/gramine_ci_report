@@ -63,13 +63,20 @@ class FailureAnalyser(ResultAnalyser):
     def fetch_known_failures(self):
         self.f_list = pd.read_csv(self.failures_list)
 
-    def get_node_failures(self, node, sgx_mode):
-        return list(self.f_list.loc[(self.f_list['Node'] == node) & (self.f_list['SGX'] == sgx_mode)]['Test'])
+    def get_node_failures(self, node=None, exec_mode=None):
+        if node and exec_mode:
+            return list(self.f_list.loc[(self.f_list['Node'] == node)]['Test']) + \
+                list(self.f_list.loc[(self.f_list['SGX'] == exec_mode) & (self.f_list['Node'].isna())]['Test'])
+        elif exec_mode:
+            return list(self.f_list.loc[(self.f_list['SGX'] == exec_mode) & (self.f_list['Node'].isna())]['Test'])
 
     def color_format(self, f_df):
-        node_name = f_df['build_details']['node']
-        sgx_mode = f_df['build_details']['Mode']
-        self.node_failures = self.get_node_failures(node_name, sgx_mode)
+        sgx_mode = f_df['build_details'].get('Mode') or "Gramine SGX"
+        if f_df['build_details'].get('node'):
+            node_name = f_df['build_details']['node']
+            self.node_failures = self.get_node_failures(node_name, sgx_mode)
+        else:
+            self.node_failures = self.get_node_failures(exec_mode=sgx_mode)
         df_1 = f_df.copy()
         for index_1, index_2 in f_df.keys():
             if index_1 == "build_details" and index_2 == "result" and df_1["build_details"]["result"] == "ABORTED":

@@ -4,10 +4,11 @@ from lib import FailureAnalyser
 from lib import SummaryAnalyser
 from lib import GramineNightly
 from lib import CurationNightly
+import os
 
 
 JENKINS_URL = os.environ.get('jenkins_url')
-NIGHTLY_PIPELINE = os.environ.get('nightly_pipeline')
+NIGHTLY_PIPELINE = os.environ.get('nightly_pipeline', 'graphene_nightly_pipeline')
 
 USER_NAME = os.environ.get('username')
 PASSWORD = os.environ.get('password')

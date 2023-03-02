@@ -58,6 +58,7 @@ class JenkinsAnalysis:
         return node_details
 
     def get_build_env_details(self, pipeline, build_no, console_out):
+        edmm = None
         env_details = {}
         try:
             build_out = self.jenkins_server.get_build_info(pipeline, build_no, depth=1)
@@ -65,14 +66,19 @@ class JenkinsAnalysis:
                 node_info = self.get_node_details(pipeline, build_no, console_out)
                 if node_info: env_details.update(node_info)
                 for c1 in build_out['actions']:
-                    if "parameters" in c1.keys() and "gsc" in pipeline:
-                        distro_version = [param['value'].replace(":", " ") for param in c1['parameters'] if param['name'] == "distro_ver"][0]
-                        env_details['Mode'] = "Gramine SGX"
-                        env_details['OS'] = distro_version.capitalize()
-                    elif "environment" in c1.keys() and "gsc" not in pipeline:
-                        env_details['Mode'] = "Gramine SGX" if c1["environment"].get('SGX') == "1" else "Gramine Native"
+                    if "parameters" in c1.keys():
+                        details = [param['value'] for param in c1['parameters'] if param['name'] == "EDMM"] or ["0"]
+                        if details == ["1"]: edmm = True
+                    elif "environment" in c1.keys():
+                        if edmm:
+                            env_details['Mode'] = "Gramine EDMM"
+                        elif c1["environment"].get('SGX') != "1":
+                            env_details['Mode'] = "Gramine Native"
+                        else:
+                            env_details['Mode'] = "Gramine SGX"
                         env_details['OS'] = c1.get('environment', {}).get('os_release_id',
                             '').capitalize() + " " + c1.get('environment', {}).get('os_version', '')
+                        break
                 env_details["Kernel Version"] = self.jenkins_server.run_script('println "uname -r".execute().text',
                                                                                env_details['node']).strip()
             env_details["result"] = build_out["result"]
@@ -112,7 +118,6 @@ class JenkinsAnalysis:
                 print("Failed to analyze pipeline {}, {}".format(pipeline, build_no))
             finally:
                 res.update({"build_details": build_info})
-                # job_name = "{}_{}".format(pipeline, num)
                 consolidate_data[pipeline] = res
         return consolidate_data
 
@@ -155,7 +160,7 @@ class JenkinsAnalysis:
     def get_suite_summary(self, suite_data, workload):
         result = summary.copy()
 
-        result["Pass"] = sum((tc['status'] == "PASSED") for tc in suite_data if workload in tc['className'])
+        result["Pass"] = sum((tc['status'] in ["PASSED", "FIXED"]) for tc in suite_data if workload in tc['className'])
         result["Fail"] = sum((tc['status'] in ["FAILED", "REGRESSION"]) for tc in suite_data if workload in tc['className'])
         result["Skip"] = sum((tc['status'] == "SKIPPED") for tc in suite_data if workload in tc['className'])
         result["Total"] = result["Pass"] + result["Fail"] + result["Skip"]

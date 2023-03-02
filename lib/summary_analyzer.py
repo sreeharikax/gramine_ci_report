@@ -13,7 +13,7 @@ class SummaryAnalyser():
     def copy_results(self):
         if not os.path.exists(self.dest_path): os.makedirs(self.dest_path)
         print("Copying the excel data to {}".format(self.dest_path))
-        os.system("robocopy /R:5 /MIR /COPY:DT /DCOPY:T " + self.result_folder + " " + self.dest_path)
+        os.system("robocopy /R:5 /COPY:DT /DCOPY:T " + self.result_folder + " " + self.dest_path)
 
     def process_result_folder(self, rfile):
         file = inspect.stack()[3].filename
@@ -60,6 +60,7 @@ class SummaryAnalyser():
         finally:
             # Close the Pandas Excel writer and output the Excel file.
             writer.save()
+            writer.close()
 
     def process_output(self, writer, out_df, sheet_name):
         out_df.to_excel(writer, sheet_name=sheet_name)
