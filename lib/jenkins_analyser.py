@@ -23,22 +23,30 @@ class JenkinsAnalysis:
     def create_server(self):
         return jenkins.Jenkins(self.url, self.user, self.pwd)
 
-    def get_jenkins_job_details(self, output):
-        job_details = {}
+    def get_pipeline_details(self, build_name, job_regex):
+        builds_list = []
         rerun_builds = os.environ.get('rerun_details', '{}')
         updated_builds = json.loads(rerun_builds)
+        for jjob in job_regex:
+            dbuild_no = jjob.split("#")[1]
+            if dbuild_no not in builds_list:
+                builds_list.append(dbuild_no)
+        if (build_name in updated_builds.keys()):
+            # job_details[build_name] = updated_builds[build_name]
+            for jkey, jvalue in updated_builds[build_name].items():
+                if jkey in builds_list:
+                    builds_list.remove(jkey)
+                    builds_list.append(jvalue)
+        return builds_list
+
+    def get_jenkins_job_details(self, output):
+        job_details = {}
         match_out = output.split("Scheduling project: ")
         for match in match_out[1::]:
             build_name = match.split("\r\n")[0].strip()
-            job_regex = re.search("Starting building: {} .\d+".format(build_name), output)
-            if job_regex:
-                dbuild_no = job_regex.group().split("#")[1]
-            else:
-                dbuild_no = ""
-            if (build_name in updated_builds.keys()):
-                job_details[build_name] = updated_builds[build_name]
-            else:
-                job_details[build_name] = dbuild_no
+            job_regex = re.findall("Starting building: {} .\d+".format(build_name), output)
+            dbuild_no = self.get_pipeline_details(build_name, job_regex)
+            job_details[build_name] = dbuild_no
         return job_details
 
     def get_node_details(self, pipeline, build_no, console_out):
@@ -99,26 +107,35 @@ class JenkinsAnalysis:
                 gsc_result["failures"]["test_workloads"][workload] = "FAILED"
         return gsc_result
 
-    def get_build_summary(self, pipeline_jobs):
+    def get_build_summary(self, pipeline, build_no):
+        try:
+            sbuild = {}
+            build_info = {"result": "FAILURE"}
+            console_out = self.jenkins_server.get_build_console_output(pipeline, int(build_no))
+            build_info = self.get_build_env_details(pipeline, int(build_no), console_out)
+            if "gsc" in pipeline:
+                sbuild = self.verify_gsc_workloads(console_out)
+            else:
+                job_report = self.jenkins_server.get_build_test_report(pipeline, int(build_no))
+                sbuild = self.get_job_summary(job_report['suites'])
+                fail_summary = self.get_test_failure_data(job_report['suites'])
+                sbuild.update({"failures": fail_summary})
+        except:
+            print("Failed to analyze pipeline {}, {}".format(pipeline, build_no))
+        finally:
+            sbuild.update({"build_details": build_info})
+        return sbuild
+
+    def get_pipeline_summary(self, pipeline_jobs):
         consolidate_data = {}
-        for pipeline, build_no in pipeline_jobs.items():
-            try:
-                res = {}
-                build_info = {"result": "FAILURE"}
-                console_out = self.jenkins_server.get_build_console_output(pipeline, int(build_no))
-                build_info = self.get_build_env_details(pipeline, int(build_no), console_out)
-                if "gsc" in pipeline:
-                    res = self.verify_gsc_workloads(console_out)
+        for pipeline, build_list in pipeline_jobs.items():
+            for build_no in build_list:
+                res = self.get_build_summary(pipeline, build_no)
+                if len(build_list) > 1:
+                    pipeline_name = pipeline + "_" + str(build_no)
                 else:
-                    job_report = self.jenkins_server.get_build_test_report(pipeline, int(build_no))
-                    res = self.get_job_summary(job_report['suites'])
-                    fail_summary = self.get_test_failure_data(job_report['suites'])
-                    res.update({"failures": fail_summary})
-            except:
-                print("Failed to analyze pipeline {}, {}".format(pipeline, build_no))
-            finally:
-                res.update({"build_details": build_info})
-                consolidate_data[pipeline] = res
+                    pipeline_name = pipeline
+                consolidate_data[pipeline_name] = res
         return consolidate_data
 
     def result_update(self, res, orig_data):
@@ -176,7 +193,7 @@ class JenkinsAnalysis:
         build_no = self.jenkins_server.get_job_info(job_name)["builds"][0]["number"]
         console_output = self.jenkins_server.get_build_console_output(job_name, build_no)
         downstream_jobs = self.get_jenkins_job_details(console_output)
-        output = self.get_build_summary(downstream_jobs)
+        output = self.get_pipeline_summary(downstream_jobs)
         return output
 
     def get_failed_test(self, test_data, test_suite):
