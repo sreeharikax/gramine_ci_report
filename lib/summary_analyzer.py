@@ -7,7 +7,7 @@ import inspect
 class SummaryAnalyser():
     def __init__(self):
         self.build_folder = "Gramine_Nightly_{}".format(str(date.today()))
-        jk_workspace = "\\\\inecsamba.iind.intel.com\\nfs\\iind\\proj\\ssg\\ubt12_disk001"
+        jk_workspace = os.environ.get('DEST_PATH')
         self.dest_path = os.path.join(jk_workspace, "Gramine_Report", self.build_folder)
 
     def copy_results(self):

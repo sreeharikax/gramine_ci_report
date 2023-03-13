@@ -27,10 +27,13 @@ class JenkinsAnalysis:
         builds_list = []
         rerun_builds = os.environ.get('rerun_details', '{}')
         updated_builds = json.loads(rerun_builds)
-        for jjob in job_regex:
-            dbuild_no = jjob.split("#")[1]
-            if dbuild_no not in builds_list:
-                builds_list.append(dbuild_no)
+        if job_regex:
+            for jjob in job_regex:
+                dbuild_no = jjob.split("#")[1]
+                if dbuild_no not in builds_list:
+                    builds_list.append(dbuild_no)
+        else:
+            builds_list.append("")
         if (build_name in updated_builds.keys()):
             # job_details[build_name] = updated_builds[build_name]
             for jkey, jvalue in updated_builds[build_name].items():
