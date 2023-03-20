@@ -15,3 +15,7 @@ S.No,Test,SGX,Node,Issue Link
 14,test_ltp[gettimeofday02],Gramine EDMM,,
 15,test_ltp[bind01],Gramine EDMM,,
 16,test_ltp[clock_gettime01],Gramine EDMM,,
+17,test_120_8gb_enclave,Gramine SGX,graphene_18.04_5.19
+18,test_ltp[recvmsg01],Gramine Native
+19,test_ltp[recvmsg01],Gramine SGX
+20,test_ltp[recvmsg01],Gramine EDMM

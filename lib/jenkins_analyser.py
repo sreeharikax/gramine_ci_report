@@ -103,6 +103,10 @@ class JenkinsAnalysis:
         bash_out = re.search('docker run --device=(.*) gsc-bash-test -c free(.*)Mem:(.*)Swap:', gsc_console, re.DOTALL)
         python_out = re.search('docker run --device=(.*) gsc-python -c (.*)print(.*)HelloWorld!(.*)HelloWorld!', gsc_console, re.DOTALL)
         helloworld_out = re.search('docker run --device=(.*) gsc-helloworld-test(.*)"Hello World!', gsc_console, re.DOTALL)
+        if not bash_out:
+            bash_out = re.search('docker run --device=(.*) gsc-bash-test -c ls(.*)boot(.*)home(.*)proc', gsc_console,
+                                 re.DOTALL)
+
         for workload in ["bash", "python", "helloworld"]:
             if eval(workload+"_out"):
                 gsc_result['test_workloads'][workload] = "PASSED"
