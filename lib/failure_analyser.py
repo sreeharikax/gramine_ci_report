@@ -29,7 +29,11 @@ class FailureAnalyser(ResultAnalyser):
         return comb_list
 
     def get_headers(self):
-        headers_list = [x for x in self.rg.rdata.keys()  if (self.rg.rdata[x].get("build_details", {}).get("result", "") != "SUCCESS")]
+        headers_list = []
+        for key, val in self.rg.rdata.items():
+            if [True for f_key in val.get("failures", {}).keys() if val.get("failures", {}).get(f_key, None) not in [[], {}]] or \
+                    val.get("failures", {}) == {}:
+                headers_list.append(key)
         return headers_list
 
     def parse_output(self, output, summary=False):

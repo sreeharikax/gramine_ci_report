@@ -35,10 +35,12 @@ class JenkinsAnalysis:
         else:
             builds_list.append("")
         if (build_name in updated_builds.keys()):
-            # job_details[build_name] = updated_builds[build_name]
             for jkey, jvalue in updated_builds[build_name].items():
-                if jkey in builds_list:
-                    builds_list.remove(jkey)
+                if (jkey in builds_list) or (jkey == "add"):
+                    if jkey == "add":
+                        builds_list.remove('')
+                    else:
+                        builds_list.remove(jkey)
                     builds_list.append(jvalue)
         return builds_list
 

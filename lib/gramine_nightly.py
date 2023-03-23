@@ -10,7 +10,7 @@ class GramineNightly:
     def analyze_and_report(self, nightly_pipeline):
         self.result_file = f"{nightly_pipeline}_results"
         report_result = self.ci_obj.analyze_report(nightly_pipeline)
-        print(report_result)
+        # print(report_result)
 
         print(f"Starting Downstream Analysis for {nightly_pipeline} nightly jobs")
         nightly_df = self.rp.parse_output(report_result)
