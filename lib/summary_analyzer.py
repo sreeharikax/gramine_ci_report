@@ -5,10 +5,9 @@ import inspect
 
 
 class SummaryAnalyser():
-    def __init__(self):
+    def __init__(self, dest_path):
         self.build_folder = "Gramine_Nightly_{}".format(str(date.today()))
-        jk_workspace = os.environ.get('DEST_PATH')
-        self.dest_path = os.path.join(jk_workspace, "Gramine_Report", self.build_folder)
+        self.dest_path = os.path.join(dest_path, "Gramine_Report", self.build_folder)
 
     def copy_results(self):
         if not os.path.exists(self.dest_path): os.makedirs(self.dest_path)
@@ -34,6 +33,10 @@ class SummaryAnalyser():
                                        'bg_color': '#FFC7CE',
                                        'font_color': '#9C0006'})
 
+        # Add a format. Light green text.
+        format4 = workbook.add_format({'bold': 1,
+                                       'bg_color': '#76933C'})
+
         # Apply a conditional format to the cell range.
         worksheet.conditional_format(0, 0, max_row, max_col+1, {'type': 'cell',
                                                  'criteria': 'equal to',
@@ -49,6 +52,11 @@ class SummaryAnalyser():
                                                  'criteria': 'equal to',
                                                  'value': '"ABORTED"',
                                                  'format': format3})
+
+        worksheet.conditional_format(0, 0, max_row, max_col+1, {'type': 'cell',
+                                                 'criteria': 'equal to',
+                                                 'value': '"FIXED"',
+                                                 'format': format4})
         worksheet.freeze_panes(3, 2)
 
     def write_to_excel(self, rfile, data_dict):

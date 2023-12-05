@@ -14,51 +14,31 @@ class ResultAnalyser:
         if self.build_details:
             self.build_keys = ['node', 'result', 'Mode', "OS", "Kernel Version", "IP", "build_no"]
         else:
-            self.build_keys = ['result', "build_no"]
+            self.build_keys = ['result', "build_no", "Mode"]
         for test in test_list:
             if test == "build_details":
                 comb_list.extend(list(itertools.product([test], self.build_keys)))
-            elif test not in ["test_workloads", "gsc"]:
+            elif test not in ["test_workloads"]:
                 comb_list.extend(itertools.product([test], test_reskeys))
         return comb_list
 
-    def get_headers_by_node(self, summary):
+    def get_headers_by_node(self):
         headers_list = []
         data_copy = copy.deepcopy(self.rdata)
-        gsc_jobs = [x for x in data_copy if "local_ci_graphene_gsc" in x]
-        [data_copy.pop(job) for job in gsc_jobs]
         node_list = list(set([data_copy[x].get('build_details',{}).get('node') for x in data_copy]))
         for node in node_list:
             com_jobs = [x for x in data_copy if data_copy[x].get('build_details', {}).get('node') == node]
             headers_list.extend(com_jobs)
-        if not summary: headers_list.extend(gsc_jobs)
 
         return headers_list
 
-    def update_gsc_results(self):
-        data_copy = copy.deepcopy(self.rdata)
-        gsc_jobs = [x for x in data_copy if "local_ci_graphene_gsc" in x]
-        [data_copy.pop(job) for job in gsc_jobs]
-        comb = {}
-        for gsc_job in gsc_jobs:
-            for job, res in data_copy.items():
-                if (res['build_details'].get('node') == self.rdata[gsc_job]['build_details'].get('node') and
-                        res['build_details'].get('Mode') == "Gramine SGX"):
-                    comb[job] = gsc_job
-        for d_job, g_job in comb.items():
-            data_copy[d_job]['gsc'] = self.rdata[g_job].get('test_workloads', {})
-        return data_copy
-
-    def parse_output(self, output, summary=False):
+    def parse_output(self, output):
         self.rdata = copy.deepcopy(output)
-        headers = self.get_headers_by_node(summary)
-        test_suites = self.get_test_suites(summary)
+        headers = self.get_headers_by_node()
+        test_suites = self.get_test_suites()
         suites_list = self.get_suites_list(test_suites)
 
-        if summary:
-            result_summary = copy.deepcopy(self.update_gsc_results())
-        else:
-            result_summary = copy.deepcopy(self.rdata)
+        result_summary = copy.deepcopy(self.rdata)
 
         row_list = pd.MultiIndex.from_tuples(suites_list)
         df = pd.DataFrame('', row_list, columns=headers)
@@ -88,13 +68,12 @@ class ResultAnalyser:
 
         return df_1
 
-    def get_test_suites(self, summary):
+    def get_test_suites(self):
         cases_list = []
         for rkey, rval in self.rdata.items():
             cases_list.extend(list(rval.keys()))
         cases_list = list(set(cases_list))
         cases_list.sort()
-        if summary: cases_list.append('gsc')
         if "failures" in cases_list:
             cases_list.remove('failures')
         return cases_list

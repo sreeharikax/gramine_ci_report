@@ -35,22 +35,38 @@ class JenkinsAnalysis:
         else:
             builds_list.append("")
         if (build_name in updated_builds.keys()):
-            for jkey, jvalue in updated_builds[build_name].items():
-                if (jkey in builds_list) or (jkey == "add"):
-                    if jkey == "add":
-                        builds_list.remove('')
-                    else:
-                        builds_list.remove(jkey)
-                    builds_list.append(jvalue)
+            if type(updated_builds[build_name]) == dict:
+                 self.update_build_no(builds_list, updated_builds[build_name])
+            elif type(updated_builds[build_name]) == list:
+                for build_item in updated_builds[build_name]:
+                    self.update_build_no(builds_list, build_item)
         return builds_list
+
+    def update_build_no(self, builds_list, build_val):
+        for jkey, jvalue in build_val.items():
+            if (jkey in builds_list) or (jkey == "add"):
+                if jkey == "add":
+                    builds_list.remove('')
+                else:
+                    builds_list.remove(jkey)
+                builds_list.append(jvalue)
+
+    def build_dict_count(self, match_out):
+        build_count  = {}
+        for s_b in set(match_out):
+            build_count[s_b] = match_out.count(s_b)
+        return build_count
 
     def get_jenkins_job_details(self, output):
         job_details = {}
-        match_out = output.split("Scheduling project: ")
-        for match in match_out[1::]:
-            build_name = match.split("\r\n")[0].strip()
+        match_out = re.findall("Scheduling project: (.*)", output)
+        s_jobs = self.build_dict_count(match_out)
+        for match, count in s_jobs.items():
+            build_name = match.strip()
             job_regex = re.findall("Starting building: {} .\d+".format(build_name), output)
             dbuild_no = self.get_pipeline_details(build_name, job_regex)
+            if len(dbuild_no) != count:
+                [dbuild_no.append("") for b_diff in range(count-len(dbuild_no))]
             job_details[build_name] = dbuild_no
         return job_details
 
@@ -96,25 +112,13 @@ class JenkinsAnalysis:
                                                                                env_details['node']).strip()
             env_details["result"] = build_out["result"]
             env_details["build_no"] = build_no
+            if "_gsc" in pipeline:
+                env_details["Mode"] = "Gramine GSC"
+            elif "_curation_app" in pipeline:
+                env_details["Mode"] = "Gramine Curation"
         except Exception as e:
             print("Unable to get build environment details for {}:{} {}".format(pipeline, build_no, e))
         return env_details
-
-    def verify_gsc_workloads(self, gsc_console):
-        gsc_result = {'test_workloads': {'python': "FAILED", 'bash': 'FAILED', "helloworld": "FAILED"}, 'failures' :{'test_workloads':{}}}
-        bash_out = re.search('docker run --device=(.*) gsc-bash-test -c free(.*)Mem:(.*)Swap:', gsc_console, re.DOTALL)
-        python_out = re.search('docker run --device=(.*) gsc-python -c (.*)print(.*)HelloWorld!(.*)HelloWorld!', gsc_console, re.DOTALL)
-        helloworld_out = re.search('docker run --device=(.*) gsc-helloworld-test(.*)"Hello World!', gsc_console, re.DOTALL)
-        if not bash_out:
-            bash_out = re.search('docker run --device=(.*) gsc-bash-test -c ls(.*)boot(.*)home(.*)proc', gsc_console,
-                                 re.DOTALL)
-
-        for workload in ["bash", "python", "helloworld"]:
-            if eval(workload+"_out"):
-                gsc_result['test_workloads'][workload] = "PASSED"
-            else:
-                gsc_result["failures"]["test_workloads"][workload] = "FAILED"
-        return gsc_result
 
     def get_build_summary(self, pipeline, build_no):
         try:
@@ -122,13 +126,10 @@ class JenkinsAnalysis:
             build_info = {"result": "FAILURE"}
             console_out = self.jenkins_server.get_build_console_output(pipeline, int(build_no))
             build_info = self.get_build_env_details(pipeline, int(build_no), console_out)
-            if "gsc" in pipeline:
-                sbuild = self.verify_gsc_workloads(console_out)
-            else:
-                job_report = self.jenkins_server.get_build_test_report(pipeline, int(build_no))
-                sbuild = self.get_job_summary(job_report['suites'])
-                fail_summary = self.get_test_failure_data(job_report['suites'])
-                sbuild.update({"failures": fail_summary})
+            job_report = self.jenkins_server.get_build_test_report(pipeline, int(build_no))
+            sbuild = self.get_job_summary(job_report['suites'])
+            fail_summary = self.get_test_failure_data(job_report['suites'])
+            sbuild.update({"failures": fail_summary})
         except:
             print("Failed to analyze pipeline {}, {}".format(pipeline, build_no))
         finally:
@@ -199,8 +200,12 @@ class JenkinsAnalysis:
         return res
 
     def analyze_report(self, job_name):
-        build_no = self.jenkins_server.get_job_info(job_name)["builds"][0]["number"]
-        console_output = self.jenkins_server.get_build_console_output(job_name, build_no)
+        pipeline_no = os.environ.get('pipeline_no', '')
+        if pipeline_no :
+            pipeline_no = int(pipeline_no)
+        else:
+            pipeline_no = self.jenkins_server.get_job_info(job_name)["builds"][0]["number"]
+        console_output = self.jenkins_server.get_build_console_output(job_name, pipeline_no)
         downstream_jobs = self.get_jenkins_job_details(console_output)
         output = self.get_pipeline_summary(downstream_jobs)
         return output

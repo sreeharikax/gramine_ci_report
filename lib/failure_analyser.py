@@ -14,7 +14,6 @@ class FailureAnalyser(ResultAnalyser):
     def get_suites_list(self, test_list):
         comb_list = []
         for key, value in self.rg.rdata.items():
-            # if "gsc" not in key:
             self.fdata[key] = value.get('failures', {})
             self.fdata[key]["build_details"] = value.get('build_details')
 
@@ -36,10 +35,10 @@ class FailureAnalyser(ResultAnalyser):
                 headers_list.append(key)
         return headers_list
 
-    def parse_output(self, output, summary=False):
+    def parse_output(self, output):
         self.rg.rdata = output
         headers = self.get_headers()
-        test_suites = self.rg.get_test_suites(summary)
+        test_suites = self.rg.get_test_suites()
         test_list = test_suites.copy()
         suites_list = self.get_suites_list(test_list)
         self.fetch_known_failures()
