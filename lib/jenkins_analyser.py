@@ -91,6 +91,8 @@ class JenkinsAnalysis:
         env_details = {}
         try:
             build_out = self.jenkins_server.get_build_info(pipeline, build_no, depth=1)
+            env_details["result"] = build_out["result"]
+            env_details["build_no"] = build_no
             if self.build_details:
                 node_info = self.get_node_details(pipeline, build_no, console_out)
                 if node_info: env_details.update(node_info)
@@ -110,8 +112,6 @@ class JenkinsAnalysis:
                         break
                 env_details["Kernel Version"] = self.jenkins_server.run_script('println "uname -r".execute().text',
                                                                                env_details['node']).strip()
-            env_details["result"] = build_out["result"]
-            env_details["build_no"] = build_no
             if "_gsc" in pipeline:
                 env_details["Mode"] = "Gramine GSC"
             elif "_curation_app" in pipeline:
@@ -205,6 +205,7 @@ class JenkinsAnalysis:
             pipeline_no = int(pipeline_no)
         else:
             pipeline_no = self.jenkins_server.get_job_info(job_name)["builds"][0]["number"]
+        os.environ["pipeline_no"] = str(pipeline_no)
         console_output = self.jenkins_server.get_build_console_output(job_name, pipeline_no)
         downstream_jobs = self.get_jenkins_job_details(console_output)
         output = self.get_pipeline_summary(downstream_jobs)

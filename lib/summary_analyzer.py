@@ -14,11 +14,12 @@ class SummaryAnalyser():
         print("Copying the excel data to {}".format(self.dest_path))
         os.system("robocopy /R:5 /COPY:DT /DCOPY:T " + self.result_folder + " " + self.dest_path)
 
-    def process_result_folder(self, rfile):
+    def process_result_folder(self, pipeline):
         file = inspect.stack()[3].filename
         self.result_folder = os.path.join(os.path.dirname(file), "results", self.build_folder)
         if not os.path.exists(self.result_folder): os.makedirs(self.result_folder)
-        self.result_file = f'{self.result_folder}/{rfile}.xlsx'
+        pipeline_no = os.environ.get("pipeline_no")
+        self.result_file = f'{self.result_folder}/{pipeline}_{pipeline_no}.xlsx'
 
     @staticmethod
     def table_format(workbook, worksheet, max_row, max_col):
@@ -59,8 +60,8 @@ class SummaryAnalyser():
                                                  'format': format4})
         worksheet.freeze_panes(3, 2)
 
-    def write_to_excel(self, rfile, data_dict):
-        self.process_result_folder(rfile)
+    def write_to_excel(self, pipeline, data_dict):
+        self.process_result_folder(pipeline)
         writer = pd.ExcelWriter(self.result_file, engine='xlsxwriter')
         try:
             for name, r_df in data_dict.items():
