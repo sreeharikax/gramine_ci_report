@@ -12,3 +12,5 @@ S.No,Test,SGX,Node,Issue Link
 11,test_redis_latest_image_with_attestation,Gramine Curation,,
 12,test_gcc_workload,Gramine SGX,graphene_icl_alpine,
 13,test_nodejs_workload,,graphene_icl_alpine,
+14,test_ltp[read03],Gramine Native,,
+15,test_ltp[read03],Gramine SGX,,
