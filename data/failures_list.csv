@@ -14,3 +14,4 @@ S.No,Test,SGX,Node,Issue Link
 13,test_nodejs_workload,,graphene_icl_alpine,
 14,test_ltp[read03],Gramine Native,,
 15,test_ltp[read03],Gramine SGX,,
+16,test_ltp[read03],Gramine EDMM,,
