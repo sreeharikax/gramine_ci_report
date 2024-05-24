@@ -11,7 +11,11 @@ NIGHTLY_PIPELINE = os.environ.get('nightly_pipeline')
 
 USER_NAME = os.environ.get("USERNAME")
 PASSWORD = os.environ.get("PASSWORD")
-SHARED_PATH = os.environ.get("SHARED_PATH")
+
+REPORTS_PATH = "/mnt/nightly_reports"
+
+del os.environ["http_proxy"]
+del os.environ["https_proxy"]
 
 
 if __name__ == "__main__":
@@ -20,7 +24,7 @@ if __name__ == "__main__":
     greport = JenkinsAnalysis(JENKINS_URL, USER_NAME, PASSWORD)
     rp = ResultAnalyser()
     fa = FailureAnalyser(rp)
-    sa = SummaryAnalyser(SHARED_PATH)
+    sa = SummaryAnalyser(REPORTS_PATH)
 
     na = NightlyAnalyzer(greport, rp, fa, sa)
     if "curation" in NIGHTLY_PIPELINE:

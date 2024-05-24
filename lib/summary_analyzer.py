@@ -12,7 +12,7 @@ class SummaryAnalyser():
     def copy_results(self):
         if not os.path.exists(self.dest_path): os.makedirs(self.dest_path)
         print("Copying the excel data to {}".format(self.dest_path))
-        os.system("robocopy /R:5 /COPY:DT /DCOPY:T " + self.result_folder + " " + self.dest_path)
+        os.system("cp -f " + self.result_file + " " + self.dest_path)
 
     def process_result_folder(self, pipeline):
         file = inspect.stack()[3].filename
