@@ -22,19 +22,19 @@ class ResultAnalyser:
                 comb_list.extend(itertools.product([test], test_reskeys))
         return comb_list
 
-    def get_headers_by_node(self):
+    def get_headers_by_baseos(self):
         headers_list = []
         data_copy = copy.deepcopy(self.rdata)
-        node_list = list(set([data_copy[x].get('build_details',{}).get('node') for x in data_copy]))
-        for node in node_list:
-            com_jobs = [x for x in data_copy if data_copy[x].get('build_details', {}).get('node') == node]
+        baseos_list = list(set([data_copy[x].get('build_details',{}).get('OS') for x in data_copy]))
+        for os in baseos_list:
+            com_jobs = [x for x in data_copy if data_copy[x].get('build_details', {}).get('OS') == os]
             headers_list.extend(com_jobs)
 
         return headers_list
 
     def parse_output(self, output):
         self.rdata = copy.deepcopy(output)
-        headers = self.get_headers_by_node()
+        headers = self.get_headers_by_baseos()
         test_suites = self.get_test_suites()
         suites_list = self.get_suites_list(test_suites)
 

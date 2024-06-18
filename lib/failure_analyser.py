@@ -66,25 +66,25 @@ class FailureAnalyser(ResultAnalyser):
     def fetch_known_failures(self):
         self.f_list = pd.read_csv(self.failures_list)
 
-    def get_node_failures(self, node=None, exec_mode=None):
-        if node and exec_mode:
-            return list(self.f_list.loc[(self.f_list['Node'] == node)]['Test']) + \
-                list(self.f_list.loc[(self.f_list['SGX'] == exec_mode) & (self.f_list['Node'].isna())]['Test'])
+    def get_baseos_failures(self, base_os=None, exec_mode=None):
+        if base_os and exec_mode:
+            return list(self.f_list.loc[(self.f_list['BaseOS'] == base_os)]['Test']) + \
+                list(self.f_list.loc[(self.f_list['SGX'] == exec_mode) & (self.f_list['BaseOS'].isna())]['Test'])
         elif exec_mode:
-            return list(self.f_list.loc[(self.f_list['SGX'] == exec_mode) & (self.f_list['Node'].isna())]['Test'])
+            return list(self.f_list.loc[(self.f_list['SGX'] == exec_mode) & (self.f_list['BaseOS'].isna())]['Test'])
 
     def color_format(self, f_df):
         sgx_mode = f_df['build_details'].get('Mode') or "Gramine SGX"
-        if f_df['build_details'].get('node'):
-            node_name = f_df['build_details']['node']
-            self.node_failures = self.get_node_failures(node_name, sgx_mode)
+        if f_df['build_details'].get('OS'):
+            base_os = f_df['build_details']['OS']
+            self.baseos_failures = self.get_baseos_failures(base_os, sgx_mode)
         else:
-            self.node_failures = self.get_node_failures(exec_mode=sgx_mode)
+            self.baseos_failures = self.get_baseos_failures(exec_mode=sgx_mode)
         df_1 = f_df.copy()
         for index_1, index_2 in f_df.keys():
             if index_1 == "build_details" and index_2 == "result" and df_1["build_details"]["result"] == "ABORTED":
                 df_1.loc[index_1, index_2] = 'background-color: #FFC000;'
-            elif (df_1.loc[index_1, index_2] in self.node_failures) or df_1.loc[index_1, index_2] == '' or index_1 == "build_details":
+            elif (df_1.loc[index_1, index_2] in self.baseos_failures) or df_1.loc[index_1, index_2] == '' or index_1 == "build_details":
                 df_1.loc[index_1, index_2] = '' #background-color: #FFC000;
             else:
                 df_1.loc[index_1, index_2] = 'background-color: orange;'
