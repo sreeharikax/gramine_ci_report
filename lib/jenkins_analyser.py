@@ -126,10 +126,11 @@ class JenkinsAnalysis:
             build_info = {"result": "FAILURE"}
             console_out = self.jenkins_server.get_build_console_output(pipeline, int(build_no))
             build_info = self.get_build_env_details(pipeline, int(build_no), console_out)
-            job_report = self.jenkins_server.get_build_test_report(pipeline, int(build_no))
-            sbuild = self.get_job_summary(job_report['suites'])
-            fail_summary = self.get_test_failure_data(job_report['suites'])
-            sbuild.update({"failures": fail_summary})
+            if pipeline != "local_ci_graphene_sgx_kvm":
+                job_report = self.jenkins_server.get_build_test_report(pipeline, int(build_no))
+                sbuild = self.get_job_summary(job_report['suites'])
+                fail_summary = self.get_test_failure_data(job_report['suites'])
+                sbuild.update({"failures": fail_summary})
         except:
             print("Failed to analyze pipeline {}, {}".format(pipeline, build_no))
         finally:

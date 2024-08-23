@@ -1,0 +1,32 @@
+﻿S.No.,Error Message,Category
+1,hudson.remoting.RequestAbortedException: java.io.IOException: Unexpected termination of the channel,Local CI Error
+2,download. ERROR. Failed to download(.*)No URLs left to try,Download Error
+3,pip._vendor.urllib3.exceptions.ReadTimeoutError,Network Connection Error
+4,"Unable to fetch some archives, maybe run apt-get update or try with --fix-missing",Network Connection Error
+5,SSL peer certificate or SSH remote key was not OK,SSL Build Error
+6,ERROR: Error cloning remote repo,Git Clone Error
+7,Could not connect to deb.debian.org,Network Connection Error
+8,You have reached your pull rate limit. You may increase the limit by authenticating and upgrading,Docker Pull Error
+9,"ERROR: Maximum checkout retry attempts reached, aborting",Build Error
+10,ERROR: permission denied while trying to connect to the Docker daemon socket,Docker Connection Error
+11,ERROR: Cannot connect to the Docker daemon,Docker Connection Error
+12,"terminated with an error, exit status=2 .stressor failed.",Stress-ng stressors failed
+13,rename: fopen failed: errno=2: .No such file or directory.,Stress-ng Rename error
+14,error: readdir error: No such file or directory .ENOENT.,Stress-ng readdir Error
+15,error: Failed to send IPC msg,Gramine IPC Error
+16,Cancelling nested steps due to timeout,Timeout Error
+17,ERROR: THESE PACKAGES DO NOT MATCH THE HASHES FROM THE REQUIREMENTS FILE,Docker Build Error
+18,download: WARNING: Hash mismatch: Expected,Hash Mismatch Error
+19,Core Dumped: Segmentation fault,SD Segmentation Error
+20,"EDMM feature was requested in manifest, but CPU doesn't support it",Gramine Issue
+21,ssl.SSLCertVerificationError: .SSL: CERTIFICATE_VERIFY_FAILED. certificate verify failed: self-signed certificate in certificate chain,SSL Connection Error
+22,‘ninja_build_log.txt’ doesn’t match anything,Gramine Build Error
+23,https:..registry-1.docker.io.v2.(.*)net.http: TLS handshake timeout,Docker Build Error
+24,unable to prepare context: unable to evaluate symlinks in Dockerfile path: lstat,Local CI Error
+25,error. Host injected malicious signal 2,Gramine ExInfo Error
+26,https:..registry-1.docker.io.v2(.*)tls: failed to verify certificate: x509: certificate signed by unknown authority,Docker Build Error
+27,fatal: unable to access .https:..github.com(.*)server certificate verification failed. CAfile: none CRLfile: none,Git Clone Error
+28,Failed to run command git clone https:..github.com,Git Clone Error
+29,sklearn.datasets._openml.OpenMLError: Dataset with data_id 554 not found,Dataset Download Error
+30,Failed to fetch http:..archive.ubuntu.com/ubuntu.dists(.*)504  Gateway Timeout,Apt Connection Error
+31,Cannot download repomd.xml. Cannot download repodata.repomd.xml. All mirrors were tried,Network Connection Error
