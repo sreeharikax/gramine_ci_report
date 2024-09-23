@@ -21,7 +21,7 @@
 20,"EDMM feature was requested in manifest, but CPU doesn't support it",Gramine Issue
 21,ssl.SSLCertVerificationError: .SSL: CERTIFICATE_VERIFY_FAILED. certificate verify failed: self-signed certificate in certificate chain,SSL Connection Error
 22,‘ninja_build_log.txt’ doesn’t match anything,Gramine Build Error
-23,https:..registry-1.docker.io.v2.(.*)net.http: TLS handshake timeout,Docker Build Error
+23,https:(.*)net.http: TLS handshake timeout,Docker Build Error
 24,unable to prepare context: unable to evaluate symlinks in Dockerfile path: lstat,Local CI Error
 25,error. Host injected malicious signal 2,Gramine ExInfo Error
 26,https:..registry-1.docker.io.v2(.*)tls: failed to verify certificate: x509: certificate signed by unknown authority,Docker Build Error
@@ -30,3 +30,4 @@
 29,sklearn.datasets._openml.OpenMLError: Dataset with data_id 554 not found,Dataset Download Error
 30,Failed to fetch http:..archive.ubuntu.com/ubuntu.dists(.*)504  Gateway Timeout,Apt Connection Error
 31,Cannot download repomd.xml. Cannot download repodata.repomd.xml. All mirrors were tried,Network Connection Error
+32,hudson.remoting.ChannelClosedException: Channel "hudson.remoting.(.*)The channel is closing down,Local CI Error
