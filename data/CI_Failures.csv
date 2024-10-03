@@ -27,7 +27,7 @@
 26,https:..registry-1.docker.io.v2(.*)tls: failed to verify certificate: x509: certificate signed by unknown authority,Docker Build Error
 27,fatal: unable to access .https:..github.com(.*)server certificate verification failed. CAfile: none CRLfile: none,Git Clone Error
 28,Failed to run command git clone https:..github.com,Git Clone Error
-29,sklearn.datasets._openml.OpenMLError: Dataset with data_id 554 not found,Dataset Download Error
+29,sklearn.datasets._openml.OpenMLError: Dataset(.*) not found,Dataset Download Error
 30,Failed to fetch http:..archive.ubuntu.com/ubuntu.dists(.*)504  Gateway Timeout,Apt Connection Error
 31,Cannot download repomd.xml. Cannot download repodata.repomd.xml. All mirrors were tried,Network Connection Error
 32,hudson.remoting.ChannelClosedException: Channel "hudson.remoting.(.*)The channel is closing down,Local CI Error

@@ -9,3 +9,5 @@ S.No,Test,Mode,BaseOS,Node,Description,Issue Link
 8,test_gcc_workload,Gramine SGX,Alpine 3.18,,execv: Permission denied\ncompilation terminated,
 9,test_busybox_workload,,Ubuntu 24.04,,invalid use of undefined type 'struct tc_cbq_wrropt',
 10,test_busybox_workload,,Centos 9,,invalid use of undefined type 'struct tc_cbq_wrropt',
+11,test_tfserving_workload,,,graphene_dcap_server_orig,,
+12,test_iperf_workload,,,graphene_dcap_server_orig,,
