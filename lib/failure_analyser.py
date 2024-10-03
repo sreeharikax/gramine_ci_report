@@ -76,7 +76,7 @@ class FailureAnalyser():
     def get_baseos_failures(self, exec_mode, base_os=None):
         fail_data = list(self.f_list.loc[(self.f_list['Mode'] == exec_mode) & (self.f_list['BaseOS'].isna())]['Test'])
         if base_os:
-            return list(self.f_list.loc[(self.f_list['BaseOS'] == base_os)]['Test']) + fail_data
+            return list(self.f_list.loc[(self.f_list['BaseOS'] == base_os) & (self.f_list['Mode'] == exec_mode)]['Test']) + fail_data
         return fail_data
 
     def get_failures(self, f_df):
