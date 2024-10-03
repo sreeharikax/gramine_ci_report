@@ -73,18 +73,23 @@ class FailureAnalyser():
         f_df.set_properties(**{'text-align': 'center'})
         return f_df
 
-    def get_baseos_failures(self, exec_mode, base_os=None):
-        fail_data = list(self.f_list.loc[(self.f_list['Mode'] == exec_mode) & (self.f_list['BaseOS'].isna())]['Test'])
+    def get_baseos_failures(self, exec_mode, base_os=None, node_label=None):
+        fail_data = list(self.f_list.query("(BaseOS.isna() & Mode == @exec_mode & Node.isna())")["Test"])
         if base_os:
-            return list(self.f_list.loc[(self.f_list['BaseOS'] == base_os)]['Test']) + fail_data
+            fail_data = list(self.f_list.query("(BaseOS == @base_os) & (Mode.isna() | Mode == @exec_mode)")["Test"]) + fail_data
+        if node_label:
+            fail_data = list(self.f_list.query("(Node == @node_label) & (Mode.isna() | Mode == @exec_mode)")["Test"]) + fail_data
         return fail_data
 
     def get_failures(self, f_df):
         exec_mode = f_df['build_details'].get('Mode') or "Gramine SGX"
         base_os = None
+        node_label = None
         if f_df['build_details'].get('OS'):
             base_os = f_df['build_details']['OS']
-        baseos_failures = self.get_baseos_failures(exec_mode=exec_mode, base_os=base_os)
+        if f_df['build_details'].get('node'):
+            node_label = f_df['build_details']['node']
+        baseos_failures = self.get_baseos_failures(exec_mode=exec_mode, base_os=base_os, node_label=node_label)
         return baseos_failures
 
     def build_err_parsing(self, out):
@@ -182,6 +187,7 @@ class FailureAnalyser():
         try:
             wkd_data = {}
             baseos_failures = self.get_failures(val_data)
+
             for suite in suites_list:
                 for failure in val_data[suite]:
                     if failure in baseos_failures:
