@@ -160,15 +160,18 @@ class JenkinsAnalysis:
         for suite in suites_data:
             suites_list = self.get_test_suite_name(suite['cases'])
             for elem in suites_list:
-                build_report[elem] = build_report.get(elem, {})
-                if elem == "test_workloads":
-                    build_report[elem].update(self.get_workload_result(suite['cases']))
-                else:
-                    summary_data = self.get_suite_summary(suite['cases'], elem)
-                    if build_report[elem] == {}:
-                        build_report[elem] = summary_data
+                try:
+                    build_report[elem] = build_report.get(elem, {})
+                    if elem == "test_workloads":
+                        build_report[elem].update(self.get_workload_result(suite['cases']))
                     else:
-                        build_report[elem] = self.result_update(summary_data, build_report[elem])
+                        summary_data = self.get_suite_summary(suite['cases'], elem)
+                        if build_report[elem] == {}:
+                            build_report[elem] = summary_data
+                        else:
+                            build_report[elem] = self.result_update(summary_data, build_report[elem])
+                except Exception as e:
+                    print(f"Failed to get job summary {elem}")
         return build_report
 
     def get_test_failure_data(self, suites_data):
@@ -182,15 +185,24 @@ class JenkinsAnalysis:
         return fail_report
 
     def get_test_suite_name(self, data):
-        workload_list = list(set([d['className'].split(".")[-2] for d in data]))
+        try:
+            workload_list = list(set([d['className'].split(".")[-2] for d in data]))
+        except Exception as e:
+            print("Failed to get workload list")
+            workload_list = ["tests_unknown"]
         return workload_list
 
     def get_suite_summary(self, suite_data, workload):
         result = summary.copy()
 
-        result["Pass"] = sum((tc['status'] in ["PASSED", "FIXED"]) for tc in suite_data if workload in tc['className'])
-        result["Fail"] = sum((tc['status'] in ["FAILED", "REGRESSION"]) for tc in suite_data if workload in tc['className'])
-        result["Skip"] = sum((tc['status'] == "SKIPPED") for tc in suite_data if workload in tc['className'])
+        if workload == "tests_unknown":
+            result["Pass"] = sum((tc['status'] in ["PASSED", "FIXED"]) for tc in suite_data)
+            result["Fail"] = sum((tc['status'] in ["FAILED", "REGRESSION"]) for tc in suite_data)
+            result["Skip"] = sum((tc['status'] == "SKIPPED") for tc in suite_data)
+        else:
+            result["Pass"] = sum((tc['status'] in ["PASSED", "FIXED"]) for tc in suite_data if workload in tc['className'])
+            result["Fail"] = sum((tc['status'] in ["FAILED", "REGRESSION"]) for tc in suite_data if workload in tc['className'])
+            result["Skip"] = sum((tc['status'] == "SKIPPED") for tc in suite_data if workload in tc['className'])
         result["Total"] = result["Pass"] + result["Fail"] + result["Skip"]
         return result
 

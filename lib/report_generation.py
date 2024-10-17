@@ -69,6 +69,11 @@ class ReportGeneration():
                                                                   'value': '"UNKNOWN"',
                                                                   'format': format3})
 
+        worksheet.conditional_format(0, 0, max_row, max_col + 1, {'type': 'cell',
+                                                                  'criteria': 'equal to',
+                                                                  'value': '"tests_unknown"',
+                                                                  'format': format3})
+
         worksheet.freeze_panes(3, 2)
 
 
